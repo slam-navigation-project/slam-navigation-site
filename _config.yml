@@ -1,14 +1,14 @@
 # Site Settings
 title: "SLAM Autonomous Driving Project"
 description: "LiDAR-based SLAM & Nav2 Autonomous Navigation Project Portfolio"
-url: "https://your-username.github.io"
-baseurl: "" # e.g. "/slam-project" if repository name is not your-username.github.io
+url: "https://slam-navigation-project.github.io"
+baseurl: "/slam-navigation-site"
 
 # Author Details
 author:
-  name: "Robotics Engineer"
+  name: "SLAM Navigation Team"
   email: "developer@example.com"
-  github: "your-username"
+  github: "slam-navigation-project"
 
 # Build Settings
 markdown: kramdown
