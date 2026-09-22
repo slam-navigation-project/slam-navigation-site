@@ -1,36 +1,32 @@
-# SLAM Autonomous Driving Jekyll Theme & Site Template
+# SLAM 기반 다중 AMR 자율주행 시스템
 
-GitHub Pages로 바로 호스팅 가능한 **SLAM 기반 목적지 자율주행 프로젝트 전용 Jekyll 테마/사이트 템플릿**입니다.
+- **과목:** 융합캡스톤디자인 2 (C057-5) 1조
+- **팀원:** 박주원, 윤성빈
+- **배포 사이트:** [https://slam-navigation-project.github.io/slam-navigation-site/](https://slam-navigation-project.github.io/slam-navigation-site/)
 
-## 🚀 빠른 시작 가이드
+---
 
-### 방법 1: GitHub Pages에 바로 올리기
-1. 새 GitHub 저장소(`my-slam-site` 또는 `[username].github.io`)를 생성합니다.
-2. 본 압축 파일의 모든 파일과 폴더를 해당 저장소의 루트 디렉토리에 푸시합니다.
-3. GitHub 저장소의 **Settings > Pages** 메뉴로 이동합니다.
-4. **Source**를 `Deploy from a branch` (Branch: `main` / `root`)로 설정하고 저장합니다.
-5. `_config.yml`의 `url`, `baseurl`, `author.github`을 사용자 계정 정보로 수정합니다.
+## 📝 개발 로그 (`_posts`) 작성 가이드
 
-### 방법 2: 로컬에서 테스트 실행
-```bash
-# Ruby 및 Bundler가 설치된 환경에서
-bundle install
-bundle exec jekyll serve
-# 브라우저에서 http://localhost:4000 접속
-```
+새로운 개발 일지나 실험 결과를 올릴 때 별도의 홈 화면 코드 수정 없이 `_posts/` 폴더에 마크다운(`.md`) 파일만 추가하면 Jekyll 엔진이 자동으로 최신 글을 메인에 게시합니다.
 
-## 📁 디렉토리 구조
-```
-├── _config.yml         # 사이트 전역 메타데이터 및 빌드 설정
-├── Gemfile             # Jekyll 의존성 젬 정의
-├── _includes/          # 헤더, 푸터, 메타태그 등 공통 템플릿 컴포넌트
-├── _layouts/           # 페이지/포스트/홈 기본 레이아웃 정의
-├── _posts/             # 마크다운 포스트 및 개발 일지 저장 폴더
-├── assets/
-│   ├── css/style.css   # 다크 테마 기반 반응형 스타일시트
-│   ├── js/main.js      # 프론트엔드 스크립트
-│   └── images/         # 스크린샷 및 다이어그램 저장소
-├── architecture.md     # 시스템 아키텍처 상세 페이지
-├── about.md            # 프로젝트 소개 페이지
-└── index.html          # 메인 랜딩 페이지
-```
+### 1. 파일 이름 규칙 (필수)
+파일 이름은 반드시 **`YYYY-MM-DD-제목.md`** 형식이어야 합니다. 날짜가 빠지면 사이트에 노출되지 않습니다.
+
+- 올바른 예시: `_posts/2026-09-23-lidar-driver-test.md`
+- 잘못된 예시: `_posts/test.md`, `_posts/2026_09_23_test.md`
+
+### 2. 머리말 (Front-matter) 템플릿
+마크다운 파일의 가장 첫머리에 아래 서식을 반드시 포함해야 합니다:
+
+```markdown
+---
+layout: post
+title: "게시글 제목 (예: 2D LiDAR 센서 연동 및 SLAM Toolbox 맵핑 테스트)"
+date: 2026-09-23 15:00:00 +0900
+categories: [SLAM, Test]
+tags: [ROS2, LiDAR, RaspberryPi]
+---
+
+여기에 본문 내용을 마크다운으로 자유롭게 작성합니다.
+첫 문단은 사이트 홈 화면의 글 카드 요약(Excerpt)으로 자동 출력됩니다.
