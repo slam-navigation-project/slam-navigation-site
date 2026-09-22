@@ -1,30 +1,31 @@
 ---
 layout: post
-title: "ROS 2 Nav2와 Slam Toolbox를 연동한 실시간 목적지 자율주행 파이프라인 구축"
-date: 2026-09-22 10:00:00 +0900
-categories: [Robotics, SLAM]
-tags: [ROS2, Nav2, SlamToolbox, LiDAR, Jackal]
+title: "SLAM 기반 다중 AMR 자율주행 시스템 설계 및 개발 계획"
+date: 2026-09-22 20:00:00 +0900
+categories: [Capstone, ROS2, AMR]
+tags: [SLAM, Nav2, RaspberryPi, LiDAR, Multi-AMR, A-Star]
 ---
 
-## 1. 개요
-기존의 정적 맵 기반 주행(AMCL)과 달리, 사전 지도 없이 실시간으로 지도를 작성하면서 동시에 목적지로 이동하는 **Online Async SLAM + Nav2 통합 제어 파이프라인**을 구성했습니다.
+## 1. 프로젝트 착수 배경
+물류 및 스마트 팩토리 환경에서는 라인 변경이 쉬운 자율이동로봇(AMR)이 필수적입니다. 본 프로젝트에서는 **Raspberry Pi와 2D LiDAR, ROS 2**를 결합하여 실내 자율주행과 복수 로봇 간 충돌 방지 제어를 구현합니다.
 
-## 2. 주요 실행 커맨드
+---
 
-LiDAR 드라이버 및 로봇 베이스를 Bringup한 후 아래 명령어로 SLAM과 Nav2 스택을 구동합니다:
+## 2. 주요 설계 포인트
 
-```bash
-# 1. Slam Toolbox 실행
-ros2 launch slam_toolbox online_async_launch.py \
-    params_file:=./config/mapper_params_online_async.yaml \
-    use_sim_time:=false
+### (1) Occupancy Grid Map 구축
+- ToF 방식의 2D LiDAR를 통해 실시간 포인트클라우드를 수신하고, `SLAM Toolbox`를 이용해 $0.05\text{ m}$ 해상도의 점유 격자 지도를 생성합니다.
 
-# 2. Nav2 Navigation Bringup 실행
-ros2 launch nav2_bringup navigation_launch.py \
-    params_file:=./config/nav2_params.yaml \
-    use_sim_time:=false
-```
+### (2) A* 전역 경로 탐색 및 실시간 피드백
+- 다익스트라 대비 연산 효율이 뛰어난 $A^*$ 알고리즘을 적용하고, 휠 슬립 누적 오차를 줄이기 위해 **1~2초 주기로 경로를 재계획(Replanning)**합니다.
 
-## 3. Costmap Inflation Radius 튜닝 결과
-좁은 복도 주행 시 코스트맵 인플레이션 반경이 너무 클 경우 로봇이 멈추는 데드락(Deadlock)이 발생했습니다. 
-이를 해결하기 위해 `inflation_layer`의 `cost_scaling_factor`를 `3.0`에서 `5.0`으로 조정하여 주행 통과율을 **94%**로 개선했습니다.
+### (3) 중앙 관제 프로그램 연동
+- WiFi 통신을 통해 다수 로봇의 위치와 상태를 GUI 상에 시각화하고, 경로가 교차하는 구간에서 우선순위 알고리즘을 통해 병목을 해결합니다.
+
+---
+
+## 3. 개발 일정 및 마일스톤
+- **~9월 말:** 2D LiDAR 센서 드라이버 검증 및 SLAM Toolbox 기반 지도 작성
+- **~10월 중순:** 점유 격자 맵 기반 A* 최단 경로 탐색 알고리즘 로직 구현
+- **~10월 말:** 차체 섀시 제작 및 모터 드라이버 PWM 주행 코드 결합
+- **~11월:** 장애물 동적 회피 최적화 및 중앙 관제 PC-AMR 간 무선 통신 연동 실증

@@ -1,17 +1,36 @@
 ---
 layout: page
-title: "About The Project"
+title: "프로젝트 소개 (About The Project)"
 permalink: /about/
 ---
 
-## 프로젝트 목표
-본 프로젝트는 GPS 신호가 수신되지 않는 실내 및 도심 협소 공간에서 **LiDAR SLAM 기반 실시간 지도 작성 및 자율 목적지 주행(Autonomous Navigation)**을 구현하고 검증하는 로보틱스 프로젝트입니다.
+## 1. 프로젝트 개요 (Overview)
+- **과목명:** 융합캡스톤디자인 2 (C057-5)
+- **팀명:** 1조
+- **프로젝트명:** SLAM 기반 다중 AMR 자율주행 시스템 (Multi-AMR Autonomous Navigation System)
 
-### 핵심 달성 목표
-- 2D Occupancy Grid Map 실시간 생성 및 루프 폐합(Loop-closure) 안정화
-- 목적지 좌표(Goal Pose) 수신 시 동적 장애물 감지 및 최적 회피 경로 생성
-- ROS 2 Nav2 파라미터 튜닝을 통한 주행 정밀도 향상
+본 프로젝트는 한정된 물류 및 제조 작업 공간 내에서 2대 이상의 **AMR(Autonomous Mobile Robot)**이 2D LiDAR와 ROS 2 SLAM 환경을 기반으로 실내 지도를 구축하고, 목적지까지 상호 충돌 없이 최적 경로로 자율 이동하는 스마트 무인 운송 시스템 개발을 목표로 합니다.
 
-### 문의 및 기여
-- 이메일: `developer@example.com`
-- GitHub: [https://github.com/your-username](https://github.com/your-username)
+---
+
+## 2. 팀 구성 및 역할 분담 (Team Members)
+
+| 이름 | 학번 | 역할 및 분담 내용 |
+| :--- | :--- | :--- |
+| **윤성빈** | 202220886 | 하드웨어 제작 및 전체 시스템 구현  |
+| **박주원** | 202021032 | 하드웨어 제작 및 전체 시스템 구현  |
+
+---
+
+## 3. 핵심 개발 목표 (Key Objectives)
+
+1. **정밀 2D SLAM 구현:** 2D LiDAR 센싱 및 ROS 2 `SLAM Toolbox`를 활용한 실시간 점유 격자 지도(Occupancy Grid Map) 생성
+2. **A\* 알고리즘 기반 전역 경로 최적화:** 8방향 노드 탐색 및 1~2초 주기 재계획(Replanning)을 통한 슬립 오차 보정
+3. **다중 AMR 충돌 방지 및 편대 관제:** 중앙 관제 GUI 기반 실시간 로봇 위치 트래킹, 목적지 발행 및 로봇 간 우선순위 제어
+
+---
+
+## 4. 기대 효과 (Expected Impact)
+- **물류 자동화 효율성 향상:** 실내 별도 유도선 설치 없이 반복 운송 작업을 완전 무인화
+- **안정적인 다중 편대 운용:** 로봇 간 우선순위 조율 및 능동 회피를 통해 병목 없는 협업 실현
+- **스마트 팩토리 기반 인프라:** 가변적 제조 현장에 즉각 대응 가능한 유연한 모바일 로봇 체계 구축
