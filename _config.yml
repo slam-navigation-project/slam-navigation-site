@@ -8,7 +8,7 @@ baseurl: "/slam-navigation-site"
 author:
   name: "SLAM Navigation Team"
   email: "developer@example.com"
-  github: "slam-navigation-project"
+  github: "slam-navigation-project/slam-navigation-site"
 
 # Build Settings
 markdown: kramdown
