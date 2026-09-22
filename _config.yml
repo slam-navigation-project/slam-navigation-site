@@ -1,0 +1,30 @@
+# Site Settings
+title: "SLAM Autonomous Driving Project"
+description: "LiDAR-based SLAM & Nav2 Autonomous Navigation Project Portfolio"
+url: "https://your-username.github.io"
+baseurl: "" # e.g. "/slam-project" if repository name is not your-username.github.io
+
+# Author Details
+author:
+  name: "Robotics Engineer"
+  email: "developer@example.com"
+  github: "your-username"
+
+# Build Settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  math_engine: mathjax
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Exclude from build
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor

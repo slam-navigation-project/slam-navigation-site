@@ -1,0 +1,39 @@
+---
+layout: default
+---
+<article class="post-full">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%Y년 %m월 %d일" }}</time>
+      {% if page.categories %}
+        <span class="post-category">[{{ page.categories | join: ", " }}]</span>
+      {% endif %}
+    </div>
+    <h1 class="post-title">{{ page.title }}</h1>
+    {% if page.tags %}
+      <div class="post-tags-header">
+        {% for tag in page.tags %}
+          <span class="tag">#{{ tag }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </header>
+
+  <div class="post-content markdown-body">
+    {{ content }}
+  </div>
+
+  <footer class="post-footer">
+    <div class="post-navigation">
+      {% if page.previous.url %}
+        <a class="nav-prev" href="{{ page.previous.url | relative_url }}">&larr; {{ page.previous.title }}</a>
+      {% endif %}
+      {% if page.next.url %}
+        <a class="nav-next" href="{{ page.next.url | relative_url }}">{{ page.next.title }} &rarr;</a>
+      {% endif %}
+    </div>
+    <div class="back-to-home">
+      <a href="{{ '/' | relative_url }}" class="btn btn-outline">목록으로 돌아가기</a>
+    </div>
+  </footer>
+</article>
