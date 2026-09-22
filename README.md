@@ -1,7 +1,7 @@
 # SLAM 기반 다중 AMR 자율주행 시스템
 
-- **과목:** 융합캡스톤디자인 2 (C057-5) 1조[cite: 18]
-- **팀원:** 박주원, 윤성빈[cite: 18, 19]
+- **과목:** 융합캡스톤디자인 2 (C057-5) 1조
+- **팀원:** 박주원, 윤성빈
 - **배포 사이트:** [https://slam-navigation-project.github.io/slam-navigation-site/](https://slam-navigation-project.github.io/slam-navigation-site/)
 
 ---
