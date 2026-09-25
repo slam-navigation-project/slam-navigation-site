@@ -1,4 +1,3 @@
-````markdown
 ---
 layout: post
 title: "SSH 및 VNC 원격 접속 환경 구축"
