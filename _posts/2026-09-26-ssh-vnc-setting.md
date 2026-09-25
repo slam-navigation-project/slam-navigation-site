@@ -2,7 +2,7 @@
 ---
 layout: post
 title: "SSH 및 VNC 원격 접속 환경 구축"
-date: 2026-09-26 02:30:00 +0900
+date: 2026-09-26 02:42:00 +0900
 categories: [Capstone, RaspberryPi, Ubuntu]
 tags: [RaspberryPi, Ubuntu22.04, SSH, VNC, TigerVNC, Remote]
 ---
