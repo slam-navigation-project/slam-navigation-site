@@ -386,17 +386,17 @@ RViz2에서 map 표시
 ---
 ## 실행 시 터미널에 입력할 명령어
 ### (1) tf 설정
-```text
+```bash
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link laser
 ```
 
 ### (2) slam_toolbox 활성화(+yaml 파일 적용)
-```text
+```bash
 ros2 launch slam_toolbox online_async_launch.py slam_params_file:=/home/yun/ros2_amr_ws/config/lidar_only_slam.yaml use_sim_time:=false
 ```
 
 ### (3) 라이다 출력을 Rviz 화면상에서 확인하기
-```text
+```bash
 ros2 launch sllidar_ros2 view_sllidar_c1_launch.py
 ```
 
