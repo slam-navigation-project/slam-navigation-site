@@ -38,7 +38,7 @@ tags: [ROS2-Humble, LiDAR, SLAM-Toolbox, Laser-Odometry, Foxglove]
 - 손으로 이동 시 방 윤곽 및 복도 형태 맵 생성 확인.
 - Foxglove Studio Web 상에서 전역 좌표계(`map`) 기준 2D 점유 격자 지도 및 `/tf` 정상 연동 확인.
 
-![Foxglove Web 2D SLAM Dashboard]({{ site.baseurl }}/assets/img/posts/2026-09-28-slam-foxglove.png)
+![Foxglove Web 2D SLAM Dashboard]({{ site.baseurl }}/assets/img/posts/2026-09-28/2026-09-28-slam-foxglove.png)
 
 ### (2) 한계 및 보정 필요성
 - 단순 중심점 기반 계산으로 인해 신규 벽면 진입 시 좌표 튐 발생.
