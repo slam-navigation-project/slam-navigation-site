@@ -381,4 +381,24 @@ RViz2에서 map 표시
 
 최종적으로 `lidar_only_slam.yaml` 파일을 생성하고 SLAM Toolbox 실행 시 해당 파일을 명시적으로 지정함으로써 `/map` 데이터를 정상적으로 수신할 수 있었다.
 
-> 향후 Wheel Encoder 또는 IMU 기반 Odometry를 추가할 경우에는 `odom → base_link` TF를 별도로 생성하고, `odom_frame`을 다시 `odom`으로 설정하는 방식으로 시스템을 확장할 필요가 있다. 
+> 향후 Wheel Encoder 또는 IMU 기반 Odometry를 추가할 경우에는 `odom → base_link` TF를 별도로 생성하고, `odom_frame`을 다시 `odom`으로 설정하는 방식으로 시스템을 확장할 필요가 있다.
+
+---
+## 실행 시 터미널에 입력할 명령어
+1. tf 설정
+```text
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link laser
+```
+
+2. slam_toolbox 활성화(+yaml 파일 적용)
+```text
+ros2 launch slam_toolbox online_async_launch.py slam_params_file:=/home/yun/ros2_amr_ws/config/lidar_only_slam.yaml use_sim_time:=false
+```
+
+3. 라이다 출력을 Rviz 화면상에서 확인하기
+```text
+ros2 launch sllidar_ros2 view_sllidar_c1_launch.py
+```
+
+
+
