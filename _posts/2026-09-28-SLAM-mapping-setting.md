@@ -53,7 +53,7 @@ SLAM을 수행하기 위해 주로 확인해야 할 토픽은 다음과 같다.
 RViz2를 실행한다.
 
 ```bash
-rviz2
+ros2 launch sllidar_ros2 view_sllidar_c1_launch.py
 ```
 
 이후 좌측 하단의 Add 버튼을 통해 Map을 추가한다. 이후 좌측 메뉴에서 Map의 드롭다운 버튼을 눌러 옵션을 설정할 수 있다. 
