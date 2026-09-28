@@ -135,3 +135,26 @@ origin     : 맵 좌표 (0, 0)의 실제 좌표
 실제 가로 길이 = width × resolution
 실제 세로 길이 = height × resolution
 ```
+
+---
+### Python에서 맵 데이터 확인하기
+
+```python
+## map.txt : .py 파일과 같은 경로에 위치. 맵 데이터가 쉼표 단위로 구분되어있음.
+## 맵 데이터를 배열로 받아오는 작업
+with open("map.txt", "r", encoding="utf-8") as f:
+    map_data = list(map(int, f.read().split(",")))
+
+## 맵의 사이즈
+W_map = 19  
+H_map = 24  
+
+map = []
+## 1차원 배열 -> 2차원 배열
+for i in range(0, W_map*H_map, W_map):
+    map.append(map_data[i:i+W_map])
+
+map.reverse()
+```
+
+
