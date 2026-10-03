@@ -82,7 +82,7 @@ goal
 ---
 
 #### 출력창
-![ex_screenshot](./assets/Algorithm-test/view_test.png)
+![ex_screenshot](../assets/Algorithm-test/view_test.png)
 
 ### (2) `map_loader.py`
 
