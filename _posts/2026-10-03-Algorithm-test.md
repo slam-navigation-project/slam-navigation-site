@@ -81,6 +81,9 @@ goal
 
 ---
 
+#### 출력창
+![ex_screenshot](./Algorithm-test/view_test.png)
+
 ### (2) `map_loader.py`
 
 SLAM을 통해 생성한 Occupancy Grid Map의 배열 데이터를 저장한 텍스트 파일로부터 **2차원 맵 배열을 생성하는 역할**을 한다.
@@ -241,5 +244,5 @@ from path_visualization import path_visualization
 
 ##  Source Code
 
-- [`코드 경로`](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/assets/code)
+- [`코드 경로`](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/assets/Algorithm-test)
 
