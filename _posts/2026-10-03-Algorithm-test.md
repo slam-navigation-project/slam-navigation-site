@@ -241,7 +241,7 @@ from path_visualization import path_visualization
 
 ##  Source Code
 
-- [`main.py`](/slam-navigation-site/assets/code/main.py)
+- [`main.py`]({{ '/assets/code/main.py' | relative_url }})
 - [`path_visualization.py`]({{ './code/path_visualization.py' | relative_url }})
 - [`map_loader.py`]({{ './code/map_loader.py' | relative_url }})
 - [`astar.py`]({{ './code/astar.py' | relative_url }})
