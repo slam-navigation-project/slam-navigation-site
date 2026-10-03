@@ -241,9 +241,7 @@ from path_visualization import path_visualization
 
 ##  Source Code
 
-테스트에 사용한 소스코드는 아래에서 확인할 수 있다.
-
-- [`main.py`]({{ './code/main.py' | relative_url }})
+- [`main.py`](../assets/code/, main.py)
 - [`path_visualization.py`]({{ './code/path_visualization.py' | relative_url }})
 - [`map_loader.py`]({{ './code/map_loader.py' | relative_url }})
 - [`astar.py`]({{ './code/astar.py' | relative_url }})
