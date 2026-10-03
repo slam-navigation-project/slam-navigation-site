@@ -82,7 +82,7 @@ goal
 ---
 
 #### 출력창
-![ex_screenshot](../assets/Algorithm-test/view_test.png)
+![ex_screenshot](https://github.com/slam-navigation-project/slam-navigation-site/blob/main/assets/Algorithm-test/view_path.png)
 
 ### (2) `map_loader.py`
 
