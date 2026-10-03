@@ -245,4 +245,4 @@ from path_visualization import path_visualization
 - [`path_visualization.py`]({{ './assets/code/path_visualization.py' | relative_url }})
 - [`map_loader.py`]({{ './assets/code/map_loader.py' | relative_url }})
 - [`astar.py`]({{ './assets/code/astar.py' | relative_url }})
-- [`map.txt`]({{ .'/assets/code/map.txt' | relative_url }})
+- [`map.txt`]({{ './assets/code/map.txt' | relative_url }})
