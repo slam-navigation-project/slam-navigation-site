@@ -241,5 +241,5 @@ from path_visualization import path_visualization
 
 ##  Source Code
 
-- [`코드 경로`]({{ './assets/code' | relative_url }})
+- [`코드 경로`](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/assets/code)
 
