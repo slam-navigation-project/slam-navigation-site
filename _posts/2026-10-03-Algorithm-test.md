@@ -241,8 +241,8 @@ from path_visualization import path_visualization
 
 ##  Source Code
 
-- [`main.py`]({{ './code/main.py' | relative_url }})
-- [`path_visualization.py`]({{ './code/path_visualization.py' | relative_url }})
-- [`map_loader.py`]({{ './code/map_loader.py' | relative_url }})
-- [`astar.py`]({{ './code/astar.py' | relative_url }})
-- [`map.txt`]({{ .'/code/map.txt' | relative_url }})
+- [`main.py`]({{ './assets/code/main.py' | relative_url }})
+- [`path_visualization.py`]({{ './assets/code/path_visualization.py' | relative_url }})
+- [`map_loader.py`]({{ './assets/code/map_loader.py' | relative_url }})
+- [`astar.py`]({{ './assets/code/astar.py' | relative_url }})
+- [`map.txt`]({{ .'/assets/code/map.txt' | relative_url }})
