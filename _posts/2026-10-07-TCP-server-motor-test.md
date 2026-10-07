@@ -426,4 +426,4 @@ setMotor_driving(0, STOP_DRIVE)
 
 ---
 ### 다이어그램
-![다이어그램]
+![다이어그램][assets/tcp-server-motor-control/모터 다이어그램.png]
