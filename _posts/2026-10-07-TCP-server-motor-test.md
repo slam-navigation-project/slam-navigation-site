@@ -425,5 +425,11 @@ setMotor_driving(0, STOP_DRIVE)
 ```
 
 ---
+
 ### 다이어그램
-![다이어그램][assets/tcp-server-motor-control/모터 다이어그램.png]
+![다이어그램](https://github.com/slam-navigation-project/slam-navigation-site/blob/main/assets/tcp-server-motor-control/%EB%AA%A8%ED%84%B0%20%EB%8B%A4%EC%9D%B4%EC%96%B4%EA%B7%B8%EB%9E%A8.png)
+
+---
+##  Source Code
+
+- [`코드 경로`](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/assets/tcp-server-motor-control)
