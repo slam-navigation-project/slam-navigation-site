@@ -5,7 +5,7 @@ title: "런처 실행 및 ssh통신용 GUI 프로그램"
 date: 2026-11-08 18:00:00 +0900
 categories: [Capstone, ROS2, AMR]
 tags: [Python, Tkinter, SSH, ROS2, Foxglove, RaspberryPi]
----
+
 
 ssh 통신 및 런처 실행 등을 간단하게 실행하기 위한 GUI입니다. 기능은 점점 더 추가할 예정입니다!
 
@@ -36,7 +36,7 @@ GUI는 Python의 `Tkinter`를 기반으로 구성하였으며, `Paramiko` 라이
 프로그램 파일(amr_control_program.py)은 윈도우pc에서 실행한다. 
 
 ### GUI모습
-![AMR Control Manager GUI](/assets/img/capstone/amr_control_gui.png)
+![AMR Control Manager GUI](assets/img/posts/2026-11-082026-11-08-GUI.png)
 
 ---
 
