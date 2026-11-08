@@ -1,11 +1,10 @@
-
 ---
 layout: post
 title: "런처 실행 및 ssh통신용 GUI 프로그램"
 date: 2026-11-08 18:00:00 +0900
 categories: [Capstone, ROS2, AMR]
 tags: [Python, Tkinter, SSH, ROS2, Foxglove, RaspberryPi]
-
+---
 
 ssh 통신 및 런처 실행 등을 간단하게 실행하기 위한 GUI입니다. 기능은 점점 더 추가할 예정입니다!
 
