@@ -69,5 +69,10 @@ REMOTE_WORKSPACE = "/home/" + DEFAULT_USER + "/ros2_amr_ws" -> 3번째 항에 �
 REMOTE_CODE_DIR = f"{REMOTE_WORKSPACE}/src/riding_test"     -> 코드들이 위치한 경로 입력하시면 됩니다!
 ```
 
+---
+## 코드경로
 
+##  Source Code
+
+- [`코드 경로`]([code/2026-11-08](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/code/2026-11-08))
 
