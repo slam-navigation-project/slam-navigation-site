@@ -74,5 +74,5 @@ REMOTE_CODE_DIR = f"{REMOTE_WORKSPACE}/src/riding_test"     -> 코드들이 위�
 
 ##  Source Code
 
-- [`코드 경로`]([code/2026-11-08](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/code/2026-11-08))
+- [`코드 경로`](https://github.com/slam-navigation-project/slam-navigation-site/tree/main/code/2026-11-08)
 
