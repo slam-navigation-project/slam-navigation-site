@@ -35,7 +35,7 @@ GUI는 Python의 `Tkinter`를 기반으로 구성하였으며, `Paramiko` 라이
 프로그램 파일(amr_control_program.py)은 윈도우pc에서 실행한다. 
 
 ### GUI모습
-![AMR Control Manager GUI](/assets/img/posts/2026-11-082026-11-08-GUI.png)
+![이미지]({{ site.baseurl }}/assets/img/posts/2026-11-08/2026-11-08-GUI.png)
 
 ---
 
