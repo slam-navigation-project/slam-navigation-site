@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMR 맵 컨트롤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 왼쪽 맵 캔버스 + 오른쪽 제어 카드 열. 좁은 화면에서는 한 열로 쌓인다. */
+:root{
+  --bg:#edf1ef; --surface:#ffffff; --ink:#16211d; --muted:#586861; --line:#d3dbd7; --chip:#e4ebe8;
+  --accent:#0f766e; --accent-ink:#ffffff; --crit:#c2342b; --crit-ink:#ffffff; --warn:#a96a10; --ok:#2f855a;
+  --font-body:'Noto Sans KR',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1514; --surface:#162120; --ink:#e5eeeb; --muted:#8fa39d; --line:#26363a; --chip:#1f2e2d;
+    --accent:#2dd4bf; --accent-ink:#06211e; --crit:#ef6a60; --crit-ink:#2a0a07; --warn:#e0a640; --ok:#5fcf93;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1514; --surface:#162120; --ink:#e5eeeb; --muted:#8fa39d; --line:#26363a; --chip:#1f2e2d;
+  --accent:#2dd4bf; --accent-ink:#06211e; --crit:#ef6a60; --crit-ink:#2a0a07; --warn:#e0a640; --ok:#5fcf93;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font-body);-webkit-text-size-adjust:100%}
+h1,h2{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.top h1{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.logo{width:18px;height:18px;border-radius:5px;background:var(--accent);position:relative;flex:none}
+.logo::after{content:"";position:absolute;left:5px;top:4px;width:8px;height:8px;border-top:2px solid var(--accent-ink);border-right:2px solid var(--accent-ink);transform:rotate(45deg)}
+.grow{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;background:var(--chip);font-size:12px;font-weight:500;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.pill.ok::before{background:var(--ok)} .pill.run::before{background:var(--accent)} .pill.warn::before{background:var(--warn)} .pill.crit::before{background:var(--crit)}
+.notice{margin:12px 16px 0;padding:8px 12px;border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:6px;background:var(--surface);color:var(--muted);font-size:13px}
+
+.layout{display:grid;grid-template-columns:auto minmax(300px,500px) 380px;gap:16px;padding:16px;align-items:start;justify-content:center}
+.mid{display:flex;flex-direction:column;gap:12px;min-width:0}
+.midrow{display:grid;grid-template-columns:200px minmax(0,1fr);gap:12px;align-items:start}
+.layout>section.maincard{position:sticky;top:8px}
+#view{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0b1413;border-radius:6px;cursor:default}
+#scan{display:block;width:100%;height:auto;aspect-ratio:16/9;cursor:default;background:#0b1413;border-radius:6px}
+.scanhint{margin:8px 0 0;font-size:12px;color:var(--muted)}
+.card.maincard{padding:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h2{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--muted);margin-bottom:10px}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+.maphead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px}
+.chk input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.canvaswrap{display:flex;justify-content:center;background:var(--chip);border-radius:8px;padding:8px}
+canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
+
+dl.stats{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+dl.stats dt{color:var(--muted)} dl.stats dd{margin:0;text-align:right;min-width:0;white-space:nowrap}
+dl.stats{gap:6px 10px;font-size:13px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px}
+
+.btnrow{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;cursor:pointer;font-weight:700;min-height:44px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.stop{background:var(--crit);border-color:var(--crit);color:var(--crit-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line)}
+.card.off{opacity:.55}
+.card.off .btn.stop,.card.off .dpad .mid{opacity:1}
+[hidden]{display:none!important}
+.mapmsg{margin:0 0 10px;color:var(--muted);font-size:13px}
+.btnrow1{display:grid;grid-template-columns:1fr;gap:8px}
+.namefield{grid-template-columns:50px 1fr!important}
+.namefield input{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;width:100%;font-family:var(--font-mono);font-size:13px}
+.btn small{display:block;font-weight:400;font-size:11px;opacity:.85}
+
+.dpad{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,56px);gap:8px;max-width:260px;margin:0 auto}
+.dpad button{border:1px solid var(--line);background:var(--surface);border-radius:10px;font-size:20px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+.dpad button:hover:not(:disabled){border-color:var(--accent)}
+.dpad button:disabled{opacity:.45;cursor:not-allowed}
+.dpad button.held{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.dpad .mid{background:var(--crit);color:var(--crit-ink);border-color:var(--crit);font-size:14px;font-weight:700}
+.hint{margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center}
+
+.field{display:grid;grid-template-columns:90px 1fr 56px;align-items:center;gap:8px;margin-bottom:8px}
+.field:last-child{margin-bottom:0}
+.field label{color:var(--muted)} .field output{text-align:right}
+.field input[type=range]{width:100%;accent-color:var(--accent)}
+.field select{grid-column:2 / 4;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 8px}
+
+ol.wps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:200px;overflow:auto}
+ol.wps li{display:grid;grid-template-columns:26px 1fr 28px;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;border:1px solid transparent}
+ol.wps li.target{border-color:var(--accent);background:var(--chip)}
+ol.wps .n{width:22px;height:22px;border-radius:50%;background:#ff9900;color:#111;font-weight:700;font-size:12px;display:grid;place-items:center}
+ol.wps button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;border-radius:6px;min-height:28px}
+ol.wps button:hover{color:var(--crit)}
+.empty{color:var(--muted);font-size:13px}
+.log{font-family:var(--font-mono);font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px;max-height:200px;overflow:auto}
+.log .e{color:var(--crit)} .log .w{color:var(--warn)}
+
+@media (max-width:1100px){ .layout{grid-template-columns:minmax(0,1fr)} .midrow{grid-template-columns:minmax(0,1fr)} .layout>section.maincard{position:static} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="logo" aria-hidden="true"></span>
+  <h1>AMR 맵 컨트롤</h1>
+  <span class="grow"></span>
+  <span id="conn" class="pill warn">연결 확인 중</span>
+</header>
+<div id="notice" class="notice" hidden>데모 모드예요. 브라우저 안에서 차를 시뮬레이션하고 있고, 파이의 서버에 연결되면 같은 화면으로 실제 차를 움직여요.</div>
+
+<main class="layout">
+  <section class="card maincard" aria-label="맵">
+    <div class="maphead">
+      <div class="seg" role="group" aria-label="맵을 누를 때 동작">
+        <span style="padding:7px 12px;font-weight:600">목적지 한 곳을 클릭하세요</span>
+      </div>
+      <label class="chk" for="optBlocked"><input type="checkbox" id="optBlocked" checked>갈 수 없는 영역</label>
+      <label class="chk" for="optScan"><input type="checkbox" id="optScan" checked>라이다 표시</label>
+    </div>
+    <div class="canvaswrap"><canvas id="map" aria-label="맵에서 도착 지점을 하나 선택하는 영역"></canvas></div>
+    <div class="legend" aria-hidden="true">
+      <span><i style="background:#fff"></i>갈 수 있음</span>
+      <span><i style="background:#ffb6b6"></i>차가 닿는 범위</span>
+      <span><i style="background:#808080"></i>미탐색</span>
+      <span><i style="background:#ff9900"></i>도착 지점</span>
+      <span><i style="background:#00a0ff"></i>A* 경로</span>
+      <span><i style="background:#d02020"></i>차</span>
+    </div>
+  </section>
+
+  <section class="mid" aria-label="라이다 스캔">
+    <div class="card">
+      <h2>차 시점 (라이다 레이캐스팅 · 앞 90°)</h2>
+      <canvas id="view" aria-label="차에서 본 앞쪽 벽을 3D처럼 그린 화면"></canvas>
+      <p class="scanhint">벽이 가까울수록 높고 밝게 보여요. 라이다 거리값 하나가 화면의 세로줄 하나가 돼요.</p>
+    </div>
+    <div class="card">
+      <h2>레이더 (위가 앞 · 원은 1 m 간격)</h2>
+      <canvas id="scan" aria-label="라이다가 지금 보고 있는 모습을 위에서 본 화면"></canvas>
+    </div>
+    <div class="midrow">
+    <section class="card" aria-label="상태">
+      <h2>상태</h2>
+      <dl class="stats">
+        <dt>모드</dt><dd><span id="stMode" class="pill">대기</span></dd>
+        <dt>위치</dt><dd id="stPos" class="mono">-</dd>
+        <dt>방향</dt><dd id="stYaw" class="mono">-</dd>
+        <dt>목표</dt><dd id="stTarget" class="mono">-</dd>
+        <dt>속도</dt><dd id="stVel" class="mono">-</dd>
+        <dt>회전</dt><dd id="stW" class="mono">-</dd>
+      </dl>
+    </section>
+
+    <section class="card" aria-label="목적지">
+      <h2>도착 지점</h2>
+      <ol id="wpList" class="wps"></ol>
+    </section>
+
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card" id="mapCard" aria-label="맵 생성">
+      <h2>맵</h2>
+      <p id="mapMsg" class="mapmsg"></p>
+      <div class="field namefield" id="nameField" hidden><label for="mapName">이름</label><input id="mapName" type="text" maxlength="40" autocomplete="off" spellcheck="false"></div>
+      <div class="btnrow1">
+        <button id="btnMapStart" class="btn primary" type="button">맵 생성 시작</button>
+        <button id="btnMapFinish" class="btn primary" type="button" hidden>생성 완료</button>
+      </div>
+    </section>
+
+    <section class="card" id="autoCard" aria-label="자동 주행">
+      <h2>자동 주행 (A* 단일 목적지)</h2>
+      <div class="btnrow">
+        <button id="btnGo" class="btn primary" type="button">주행 시작</button>
+        <button id="btnStop" class="btn stop" type="button">정지<small>스페이스</small></button>
+        <button id="btnClear" class="btn" type="button">목적지 취소</button>
+      </div>
+    </section>
+
+    <section class="card" id="padCard" aria-label="수동 조종">
+      <h2>수동 조종</h2>
+      <div class="dpad">
+        <span></span><button type="button" data-v="1" data-w="0" aria-label="전진">▲</button><span></span>
+        <button type="button" data-v="0" data-w="1" aria-label="왼쪽 회전">⟲</button>
+        <button type="button" id="btnHalt" class="mid" aria-label="정지">정지</button>
+        <button type="button" data-v="0" data-w="-1" aria-label="오른쪽 회전">⟳</button>
+        <span></span><button type="button" data-v="-1" data-w="0" aria-label="후진">▼</button><span></span>
+      </div>
+      <p class="hint">누르고 있는 동안만 움직여요. 키보드는 W A S D 또는 방향키예요.</p>
+    </section>
+
+    <section class="card" aria-label="설정">
+      <h2>설정</h2>
+      <div class="field"><label for="setRadius">차 반경</label><input id="setRadius" type="range" min="0.05" max="0.30" step="0.01" value="0.12"><output id="outRadius" class="mono">0.12 m</output></div>
+      <div class="field"><label for="setSpeed">전진 속도</label><input id="setSpeed" type="range" min="0.03" max="0.15" step="0.01" value="0.08"><output id="outSpeed" class="mono">0.08 m/s</output></div>
+      <div class="field" id="fieldMult"><label for="setMult">데모 배속</label>
+        <select id="setMult"><option value="1">1배 (실제 속도)</option><option value="5" selected>5배</option><option value="10">10배</option></select></div>
+    </section>
+
+    <section class="card" aria-label="로그">
+      <h2>로그</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+//#CORE-BEGIN
+// ===== 맵 데이터 (room_map.pgm 을 변환: F=빈 공간, O=장애물, U=미탐색. 위 -> 아래 순서) =====
+const MAP_META = { w: 89, h: 166, res: 0.05, ox: -3.61, oy: -2.59 };
+const MAP_ROWS = `UUUUUUUUUUUUUFFFFFUFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUFUFFFFFUFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUFFFFOFFFFUFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUFFFFFFUFFFFFUFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+OOOUUUUFUFOOOOFFFFFUFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+FUFFUUUUFOFFFFFFFFFUFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UFFFFUUUFFFFFFFFFFFFUFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UFUFFUUUFUFFFFFFFFFFUFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUFFFFUFUFFFFFFFFFFFUFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUFUFFFUUFFFFFFFFFFFUFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUFFFFFUFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUFUFFFFUFFFFFFFFFFFUFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUFFFFFUFFFFFFFFFFFUFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUFFFFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUFFFFFUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUFFFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUFFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUFFFFUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUFUFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUFUFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUFUFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUFUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUFUFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUFUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFUUOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFOOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUFFFFFFFFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUFOOOOOOOOOOOOOOOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOOOOOOOOOFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOFFFOFFFFFFFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOFFOFFFFFFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUOOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOFFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOOOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOFOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOOFFFFFFFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUOOOOFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFOFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOOFFFFOFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOOUUUOOOOOUOUU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOFFFFFFFFFFOUUUUUUUUUUUUUUUUUUUUOOOOOOOOOOOOOOOOOOOOOOOOU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOFFFFFFFFFFOUUUOOUUUUUOOOOOOOOOOOOOOOOOOOOOOOOFFFFFFFFOOO
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFOOOOOOOOOOOOOOOOOOOOFFFFFFFFFFFOOFFFFFFFFFFOOU
+UUUUUUUUUUUUUUUUUUUUUUUOOOOOFFOOFFFFFOOFFFFOOOOOOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOO
+UUUUUUUUUUUUUUUUUUUUUUUOOFFOOOFFFFFFFFOFFFFFFOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOFFOO
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOFOFFFFFFFOU
+UUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOFFFFFFFOO
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOFFFFFFFFOO
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFFFFOOFFFFFFFFOO
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFFFFFFFFOO
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOFFFOFFFO
+UUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOUFFFOUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOUUUUUUUFFO
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOOOOFOFO
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFO
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOFOOUO
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOU
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFOU
+UUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOO
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOOU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOOU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOUU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFOOFFFFFFFOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOUU
+UUUUUUUUUUUUUUUUUUUUUUUUUOOFFFOFFFFFFFFFFFFFFFFFFOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFFFFFFFFO
+UUUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFFFFFFFFO
+UUUUUUUUUUUUUUUUUUUUUUUUUUOFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFOFFFFOFFO
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFOOFFOOFFOFFFFFFFFFFFFFFFFFFFFFFFFFFFOOOOFOOOOO
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOOOFFFFFFFFFFFFFOFFFFFFFFFFFFFFFFFOFFFFFFOFFOOUOUOOOOO
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOOOOFFFFFFFFFFFFOOFOOOOOFFFFOOOOOOOOOOOOOOOOOOUUUFOUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOUOOFFFFFFFFOFFFOOOOOOUOOOOOOOOOOUUOOOOOOUOOOOUUUUOUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFOUFFFFFFOOFFOOFFOOFOOOUUOOOOUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFFFFFFFFFOOOFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFFFFFFFFFFFOOFFFFFFFOFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUOOFFFFOOOOOOOOOOOOFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUOOOOOOOOOUUUUUUUOOOFFFFOOOOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOOOOOOOOOOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFFOOOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFFUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFFUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFFUFUUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUFUFUFUUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOUFUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOUUUFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUOOUUOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU`.split("\n");
+
+const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+
+// ===== 격자: 이미지 방향(row 0 = 맨 위)을 그대로 쓴다. 월드 y는 위로 증가 =====
+function inflate(raw, W, H, rc) {
+  const R = Math.ceil(rc), offs = [];
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= rc * rc) offs.push([dy, dx]);
+  const out = raw.slice();
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    if (!raw[r * W + c]) continue;
+    for (const [dy, dx] of offs) { const rr = r + dy, cc = c + dx; if (rr >= 0 && rr < H && cc >= 0 && cc < W) out[rr * W + cc] = 1; }
+  }
+  return out;
+}
+function makeGrid(rows, meta, radiusM) {
+  const W = meta.w, H = meta.h, raw = new Uint8Array(W * H), free = new Uint8Array(W * H), occ = new Uint8Array(W * H);
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const ch = rows[r][c];
+    if (ch === "F") free[r * W + c] = 1; else { raw[r * W + c] = 1; if (ch === "O") occ[r * W + c] = 1; }
+  }
+  const g = { W, H, res: meta.res, ox: meta.ox, oy: meta.oy, yaw: meta.yaw || 0, raw, free, occ, radius: radiusM };
+  g.blocked = radiusM > 0 ? inflate(raw, W, H, radiusM / meta.res) : raw.slice();     // 맵 만드는 중에는 팽창이 필요 없다
+  g.hard = inflate(raw, W, H, 0.06 / meta.res);       // 데모 차가 벽을 뚫지 않게 하는 물리 충돌용
+  return g;
+}
+// 회전된 NPZ 지도에도 동일한 map 월드 좌표를 사용. yaw=NPZ origin_yaw.
+const localCellXY = (g, x, y) => {
+  const dx = x - g.ox, dy = y - g.oy, c = Math.cos(g.yaw), s = Math.sin(g.yaw);
+  return [(c * dx + s * dy) / g.res, (-s * dx + c * dy) / g.res];
+};
+const localToWorld = (g, u, v) => {
+  const c = Math.cos(g.yaw), s = Math.sin(g.yaw);
+  return [g.ox + (c * u - s * v) * g.res, g.oy + (s * u + c * v) * g.res];
+};
+const worldToCell = (g, x, y) => {
+  const [u,v] = localCellXY(g, x, y);
+  return [g.H - 1 - Math.floor(v), Math.floor(u)];
+};
+const cellToWorld = (g, r, c) => localToWorld(g, c + 0.5, g.H - r - 0.5);
+const inBounds = (g, r, c) => r >= 0 && r < g.H && c >= 0 && c < g.W;
+const isFree = (g, r, c) => inBounds(g, r, c) && !g.blocked[r * g.W + c];
+
+function nearestFree(g, r, c, maxR = 15) {
+  if (isFree(g, r, c)) return [r, c];
+  for (let k = 1; k <= maxR; k++) {
+    let best = null;
+    for (let dr = -k; dr <= k; dr++) for (let dc = -k; dc <= k; dc++) {
+      if (Math.max(Math.abs(dr), Math.abs(dc)) !== k) continue;
+      if (isFree(g, r + dr, c + dc)) { const d = dr * dr + dc * dc; if (!best || d < best[0]) best = [d, r + dr, c + dc]; }
+    }
+    if (best) return [best[1], best[2]];
+  }
+  return null;
+}
+function lineFree(g, a, b) {
+  const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) * 2 + 1;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    if (!isFree(g, Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t))) return false;
+  }
+  return true;
+}
+
+// ===== A* (8방향, 옥타일 휴리스틱, 이진 힙) =====
+class Heap {
+  constructor() { this.a = []; }
+  get size() { return this.a.length; }
+  push(it) { const a = this.a; a.push(it); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } }
+  pop() {
+    const a = this.a, top = a[0], last = a.pop();
+    if (a.length) { a[0] = last; let i = 0; for (;;) { let l = 2 * i + 1, r = l + 1, m = i;
+      if (l < a.length && a[l][0] < a[m][0]) m = l; if (r < a.length && a[r][0] < a[m][0]) m = r;
+      if (m === i) break; [a[m], a[i]] = [a[i], a[m]]; i = m; } }
+    return top;
+  }
+}
+const SQ2 = Math.SQRT2;
+const NB = [[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,SQ2],[-1,1,SQ2],[1,-1,SQ2],[1,1,SQ2]];
+const octile = (r0, c0, r1, c1) => { const dr = Math.abs(r0 - r1), dc = Math.abs(c0 - c1); return dr + dc + (SQ2 - 2) * Math.min(dr, dc); };
+
+function astar(g, s, t) {
+  if (!isFree(g, s[0], s[1]) || !isFree(g, t[0], t[1])) return null;
+  const W = g.W, N = g.W * g.H, gc = new Float64Array(N).fill(Infinity), parent = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+  const si = s[0] * W + s[1], ti = t[0] * W + t[1], heap = new Heap();
+  gc[si] = 0; heap.push([octile(s[0], s[1], t[0], t[1]), si]);
+  while (heap.size) {
+    const [, cur] = heap.pop();
+    if (closed[cur]) continue;
+    if (cur === ti) { const path = []; for (let i = cur; i !== -1; i = parent[i]) path.push([Math.floor(i / W), i % W]); return path.reverse(); }
+    closed[cur] = 1;
+    const r = Math.floor(cur / W), c = cur % W;
+    for (const [dr, dc, cost] of NB) {
+      const rr = r + dr, cc = c + dc;
+      if (!isFree(g, rr, cc)) continue;
+      const ni = rr * W + cc;
+      if (closed[ni]) continue;
+      if (dr !== 0 && dc !== 0 && (!isFree(g, r + dr, c) || !isFree(g, r, c + dc))) continue;   // 모서리 끼임 방지
+      const ng = gc[cur] + cost;
+      if (ng < gc[ni]) { gc[ni] = ng; parent[ni] = cur; heap.push([ng + octile(rr, cc, t[0], t[1]), ni]); }
+    }
+  }
+  return null;
+}
+function simplify(g, cells) {
+  if (cells.length <= 2) return cells;
+  const out = [cells[0]]; let i = 0;
+  while (i < cells.length - 1) { let j = cells.length - 1; while (j > i + 1 && !lineFree(g, cells[i], cells[j])) j--; out.push(cells[j]); i = j; }
+  return out;
+}
+function plan(g, startXY, goalXY) {
+  // 데모에서도 차량의 실제 위치가 속한 셀을 그대로 시작점으로 사용한다.
+  const s = worldToCell(g, ...startXY), t = worldToCell(g, ...goalXY);
+  if (!isFree(g, ...s) || !isFree(g, ...t)) return null;
+  const cells = astar(g, s, t);
+  if (!cells) return null;
+  const pts = simplify(g, cells).map(([r, c]) => cellToWorld(g, r, c));
+  const [gr, gcol] = worldToCell(g, ...goalXY);
+  if (isFree(g, gr, gcol)) pts[pts.length - 1] = [goalXY[0], goalXY[1]];
+  return pts;
+}
+function reachable(g, startXY) {
+  const seen = new Uint8Array(g.W * g.H), s = nearestFree(g, ...worldToCell(g, ...startXY));
+  if (!s) return seen;
+  const q = [s[0] * g.W + s[1]]; seen[q[0]] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const r = Math.floor(q[h] / g.W), c = q[h] % g.W;
+    for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) { const rr = r + dr, cc = c + dc;
+      if (isFree(g, rr, cc) && !seen[rr * g.W + cc]) { seen[rr * g.W + cc] = 1; q.push(rr * g.W + cc); } }
+  }
+  return seen;
+}
+
+// ===== 경로 추종 / 왕복 (path_follower.py 와 같은 규칙) =====
+class PathFollower {
+  constructor(o = {}) { Object.assign(this, { linear: 0.08, turn: 0.5, rotateTh: 0.5, kAng: 1.5, vertexTol: 0.10, goalTol: 0.08 }, o); this.path = []; this.idx = 0; }
+  setPath(p) { this.path = p.slice(); this.idx = p.length > 1 ? 1 : 0; }
+  step(x, y, yaw) {
+    while (this.idx < this.path.length) {
+      const [tx, ty] = this.path[this.idx], last = this.idx === this.path.length - 1;
+      if (Math.hypot(tx - x, ty - y) <= (last ? this.goalTol : this.vertexTol)) this.idx++; else break;
+    }
+    if (this.idx >= this.path.length) return [0, 0, true];
+    const [tx, ty] = this.path[this.idx], err = wrapAngle(Math.atan2(ty - y, tx - x) - yaw);
+    if (Math.abs(err) > this.rotateTh) return [0, err > 0 ? this.turn : -this.turn, false];
+    return [this.linear, Math.max(-this.turn, Math.min(this.turn, this.kAng * err)), false];
+  }
+}
+class PingPong {
+  constructor() { this.points = []; this.i = 0; this.dir = 1; }
+  clear() { this.points = []; this.i = 0; this.dir = 1; }
+  current() { return this.points[this.i] || null; }
+  advance() { const n = this.points.length; if (n <= 1) return; let nx = this.i + this.dir; if (nx >= n || nx < 0) { this.dir = -this.dir; nx = this.i + this.dir; } this.i = nx; }
+}
+
+// ===== 데모 백엔드: 브라우저 안에서 차와 라이다를 시뮬레이션 =====
+class DemoBackend {
+  constructor(truth, say) {
+    this.kind = "demo"; this.truth = truth; this.say = say; this.g = truth; this.mode = "nav";
+    this.pose = [-2.08, -0.81, 0]; this.v = 0; this.w = 0;
+    this.route = new PingPong(); this.follower = new PathFollower();
+    this.active = false; this.hasPath = false; this.path = []; this.fail = 0; this.manual = null; this.hit = false;
+    this.known = null; this.dirty = false; this.mapSeq = 0; this.snapAt = 0;
+    this.snap = { stamp: "demo-full", rows: MAP_ROWS, meta: MAP_META };
+  }
+  setGrid(g) { this.g = g; this.hasPath = false; }
+  setSpeed(v) { this.follower.linear = v; }
+
+  // --- 맵 만들기 ---
+  startMapping() {
+    this.stop(true); this.route.clear(); this.manual = null;
+    this.mode = "mapping"; this.known = new Uint8Array(this.truth.W * this.truth.H);
+    this.pose = [-2.08, -0.81, 0]; this.snap = null; this.reveal();
+    this.say("SLAM을 새로 켰어요. 수동으로 돌아다니며 맵을 채우세요.");
+    return Promise.resolve();
+  }
+  reveal(range = 5.0, rays = 360) {                    // 가상 라이다: 벽에 닿을 때까지 빈 공간을 채우고, 닿은 칸은 장애물로 표시
+    const t = this.truth, k = this.known, step = t.res * 0.5, [x, y] = this.pose;
+    for (let i = 0; i < rays; i++) {
+      const a = i * 2 * Math.PI / rays, ca = Math.cos(a), sa = Math.sin(a);
+      for (let d = step; d <= range; d += step) {
+        const [r, c] = worldToCell(t, x + d * ca, y + d * sa);
+        if (!inBounds(t, r, c)) break;
+        const idx = r * t.W + c;
+        if (t.raw[idx]) { if (t.occ[idx] && k[idx] !== 2) { k[idx] = 2; this.dirty = true; } break; }
+        if (k[idx] === 0) { k[idx] = 1; this.dirty = true; }
+      }
+    }
+  }
+  scan(range = 5.0, rays = 360) {                       // 차 기준 각도(앞 = 0, 왼쪽이 +)로 레이캐스팅한 거리들
+    const t = this.truth, [x, y, yaw] = this.pose, step = t.res * 0.5, r = [];
+    for (let i = 0; i < rays; i++) {
+      const rel = i * 2 * Math.PI / rays, a = yaw + rel, ca = Math.cos(a), sa = Math.sin(a);
+      let hit = null;
+      for (let d = step; d <= range; d += step) {
+        const [rr, cc] = worldToCell(t, x + d * ca, y + d * sa);
+        if (!inBounds(t, rr, cc) || t.raw[rr * t.W + cc]) { hit = d; break; }
+      }
+      r.push(hit == null ? null : Math.round(hit * 100) / 100);
+    }
+    return { a0: 0, da: 2 * Math.PI / rays, rmax: range, r };
+  }
+  scanData() { return this.scan(); }
+  knownRows() {
+    const t = this.truth, rows = [];
+    for (let r = 0; r < t.H; r++) { let s = ""; for (let c = 0; c < t.W; c++) { const v = this.known[r * t.W + c]; s += v === 2 ? "O" : v === 1 ? "F" : "U"; } rows.push(s); }
+    return rows;
+  }
+  mapSnapshot() {
+    if (this.mode === "mapping") {
+      const now = performance.now();
+      if (!this.snap || (this.dirty && now - this.snapAt > 800)) {
+        this.snap = { stamp: "m" + (++this.mapSeq), rows: this.knownRows(), meta: MAP_META }; this.dirty = false; this.snapAt = now;
+      }
+    }
+    return this.snap;
+  }
+  finishMapping() {
+    if (this.mode !== "mapping") return Promise.reject(new Error("맵 생성 중이 아니에요."));
+    this.dirty = false; this.manual = null;
+    this.snap = { stamp: "f" + (++this.mapSeq), rows: this.knownRows(), meta: MAP_META };
+    this.mode = "nav"; this.say("맵을 저장했어요 (데모). 목적지 한 곳을 클릭하세요.");
+    return Promise.resolve({ name: "demo_map" });
+  }
+  restartNav() { return Promise.resolve(); }
+  async preview(goal) {
+    const p = plan(this.g, [this.pose[0], this.pose[1]], goal);
+    if (!p) { this.say("목적지까지 도달 가능한 A* 경로가 없습니다.", "w"); return null; }
+    return p;
+  }
+
+  // --- 주행 ---
+  go(points) {
+    if (this.mode !== "nav") { this.say("맵 생성을 끝낸 뒤에 주행할 수 있어요.", "w"); return; }
+    this.stop(true); this.route.clear();
+    for (const p of points) { const [r, c] = worldToCell(this.g, p[0], p[1]); if (isFree(this.g, r, c)) this.route.points.push(p); }
+    if (!this.route.points.length) { this.say("목적지가 없어 시작 안 함", "w"); return; }
+    this.route.i = 0; this.route.dir = 1; this.hasPath = false; this.fail = 0; this.active = true; this.say("주행 시작");
+  }
+  stop(quiet) { if (this.active && !quiet) this.say("정지"); this.active = false; this.hasPath = false; this.path = []; this.v = this.w = 0; }
+  clear() { this.stop(true); this.route.clear(); }
+  drive(v, w) {                                      // 수동 조종: 마지막 명령 후 0.4초가 지나면 자동으로 멈춘다 (서버/노드의 안전 정지와 같은 규칙)
+    if (v === 0 && w === 0) { this.manual = null; return; }
+    if (this.active) this.stop();
+    this.manual = { v, w, until: performance.now() + 400 };
+  }
+  planTarget() {
+    const t = this.route.current();
+    const p = plan(this.g, [this.pose[0], this.pose[1]], t);
+    if (!p) { this.say("목적지까지 경로가 없어 정지합니다.", "w"); return false; }
+    this.fail = 0; this.path = p; this.follower.setPath(p); this.hasPath = true; return true;
+  }
+  tick(dt) {
+    if (this.manual && performance.now() > this.manual.until) this.manual = null;
+    let v = 0, w = 0;
+    if (this.manual) { v = this.manual.v * this.follower.linear; w = this.manual.w * this.follower.turn; }
+    else if (this.active) {
+      if (!this.hasPath) {
+        if (!this.planTarget()) {
+          this.fail++;
+          if (this.route.points.length <= 1 || this.fail >= this.route.points.length) { this.stop(true); this.say("갈 수 있는 목표가 없어 정지", "w"); return; }
+          this.route.advance(); return;
+        }
+      }
+      const [cv, cw, done] = this.follower.step(this.pose[0], this.pose[1], this.pose[2]);
+      if (done) {
+        this.say("목적지 도착"); this.route.advance(); this.hasPath = false;
+        if (this.route.points.length <= 1) { this.stop(true); this.say("단일 웨이포인트 도착, 종료"); }
+        return;
+      }
+      v = cv; w = cw;
+    }
+    const [x, y, yaw] = this.pose, nx = x + v * Math.cos(yaw) * dt, ny = y + v * Math.sin(yaw) * dt, [r, c] = worldToCell(this.truth, nx, ny);
+    if (inBounds(this.truth, r, c) && !this.truth.hard[r * this.truth.W + c]) { this.pose = [nx, ny, wrapAngle(yaw + w * dt)]; this.hit = false; }
+    else { this.pose = [x, y, wrapAngle(yaw + w * dt)]; v = 0; if (!this.hit) { this.hit = true; this.say("벽에 닿아서 멈췄어요", "w"); } }
+    this.v = v; this.w = w;
+    if (this.mode === "mapping") this.reveal();
+  }
+  state() {
+    return { mode: this.mode, pose: this.pose, active: this.active, manual: !!this.manual, target: this.active ? this.route.i : null,
+             path: this.active ? this.path : [], v: this.v, w: this.w };
+  }
+}
+//#CORE-END
+
+// ===== 파이 서버 백엔드: 같은 화면으로 실제 SLAM/차를 다룬다 (amr_server.py 가 api/* 를 제공) =====
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+class PiBackend {
+  constructor(say) { this.kind = "pi"; this.say = say; this.s = null; this.speed = 0.08; this.lastMsg = ""; this.snap = null; this.fetching = false; this.scan = null; this.poll(); this.pollScan(); }
+  async poll() {
+    for (;;) {
+      try {
+        const r = await fetch("api/state", { cache: "no-store" }); this.s = await r.json();
+        if (this.s.msg && this.s.msg !== this.lastMsg) { this.lastMsg = this.s.msg; this.say(this.s.msg); }
+        const stamp = this.s.map_stamp;
+        if (!stamp) this.snap = null;                                  // 서버에 맵이 없으면 화면도 비운다
+        else if ((!this.snap || this.snap.stamp !== stamp) && !this.fetching) this.fetchMap();
+      } catch (e) { this.s = null; }
+      await sleep(250);
+    }
+  }
+  async pollScan() {
+    for (;;) {
+      const m = this.s && this.s.mode;
+      if (m === "mapping" || m === "nav") {
+        try { const j = await (await fetch("api/scan", { cache: "no-store" })).json(); this.scan = j.r ? j : null; } catch (e) { this.scan = null; }
+      } else this.scan = null;
+      await sleep(150);
+    }
+  }
+  scanData() { return this.scan; }
+  async fetchMap() {
+    this.fetching = true;
+    try {
+      const r = await fetch("api/map", { cache: "no-store" }), j = await r.json();
+      if (j.rows) this.snap = { stamp: j.stamp, rows: j.rows, meta: { w: j.w, h: j.h, res: j.res, ox: j.ox, oy: j.oy, yaw: j.yaw || 0 } };
+    } catch (e) { /* 다음 주기에 다시 */ }
+    this.fetching = false;
+  }
+  async post(url, body) {
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { this.say(j.error || `요청에 실패했어요 (${r.status})`, "e"); return null; }
+      return j;
+    } catch (e) { this.say("서버에 연결하지 못했어요.", "e"); return null; }
+  }
+  setGrid() {}
+  setSpeed(v) { this.speed = v; }
+  startMapping() { return this.post("api/mapping/start"); }
+  finishMapping(name, radius, speed) { return this.post("api/mapping/finish", { name, radius, speed }); }
+  restartNav(radius, speed) { return this.post("api/nav/restart", { radius, speed }); }
+  async preview(goal) {
+    const result = await this.post("api/plan", {goal});
+    return result && Array.isArray(result.path) ? result.path : null;
+  }
+  go(points) { this.post("api/cmd", { cmd: "go", points }); }
+  stop() { if (this.s && this.s.mode === "nav") this.post("api/cmd", { cmd: "stop" }); }
+  clear() { if (this.s && this.s.mode === "nav") this.post("api/cmd", { cmd: "clear" }); }
+  drive(v, w) { this.post("api/drive", { v: v * this.speed, w: w * 0.5 }); }
+  mapSnapshot() { return this.snap; }
+  state() {
+    const s = this.s;
+    if (!s) return { mode: "idle", offline: true, pose: null, active: false, manual: false, target: null, path: [], v: 0, w: 0 };
+    const mode = { nav: "nav", mapping: "mapping", idle: "idle" }[s.mode] || "busy";
+    return { mode, pose: s.pose || null, active: !!s.active, manual: false, target: s.active ? s.target_index : null, path: s.active ? (s.path || []) : [], v: 0, w: 0 };
+  }
+}
+
+// ===== 화면 =====
+const $ = id => document.getElementById(id);
+const canvas = $("map"), ctx = canvas.getContext("2d");
+const BLANK = { rows: Array(60).fill("U".repeat(60)), meta: { w: 60, h: 60, res: 0.05, ox: -1.5, oy: -1.5 } };
+let mapRows = MAP_ROWS, mapMeta = MAP_META, grid = makeGrid(MAP_ROWS, MAP_META, 0.12), backend = null, points = [], previewPath = [], goalRequestId = 0, S = 4;
+let baseImgs = null, lastTargetShown = -2, uiMode = null, curStamp = null, armTimer = null, wasArmed = false;
+const LIN = () => parseFloat($("setSpeed").value), RAD = () => parseFloat($("setRadius").value);
+const canDrive = () => uiMode === "nav" || uiMode === "mapping";
+
+function say(text, kind) {
+  const el = document.createElement("div"); if (kind) el.className = kind;
+  el.textContent = new Date().toTimeString().slice(0, 8) + "  " + text;
+  const log = $("log"); log.prepend(el); while (log.children.length > 30) log.lastChild.remove();
+  const t = $("toast"); if (t) { t.textContent = text; t.style.color = kind === "e" ? "var(--crit)" : ""; }
+}
+
+// 알려진 영역(F/O)의 경계 상자 + 여백만 화면에 보여준다 (탐색 안 된 회색 여백을 잘라서 맵을 더 크게)
+let vw = { r0: 0, c0: 0, h: 60, w: 60 };
+function computeView() {
+  const H = grid.H, W = grid.W, M = 8; let r0 = H, r1 = -1, c0 = W, c1 = -1;
+  for (let r = 0; r < H; r++) { const row = mapRows[r]; for (let c = 0; c < W; c++) if (row[c] !== "U") { if (r < r0) r0 = r; if (r > r1) r1 = r; if (c < c0) c0 = c; if (c > c1) c1 = c; } }
+  if (r1 < 0) { vw = { r0: 0, c0: 0, h: H, w: W }; return; }
+  r0 = Math.max(0, r0 - M); c0 = Math.max(0, c0 - M); r1 = Math.min(H - 1, r1 + M); c1 = Math.min(W - 1, c1 + M);
+  vw = { r0, c0, h: r1 - r0 + 1, w: c1 - c0 + 1 };
+}
+// 맵 이미지를 1칸=1픽셀로 미리 그려 두고 확대해서 쓴다 (맵이 바뀔 때마다 다시 만든다)
+function buildBase() {
+  computeView();
+  const mk = withBlocked => {
+    const c = document.createElement("canvas"); c.width = vw.w; c.height = vw.h;
+    const x = c.getContext("2d"), img = x.createImageData(vw.w, vw.h);
+    for (let i = 0; i < vw.w * vw.h; i++) {
+      const r = vw.r0 + Math.floor(i / vw.w), cc = vw.c0 + (i % vw.w), ch = mapRows[r][cc];
+      let rgb = [128, 128, 128];
+      if (ch === "O") rgb = [0, 0, 0]; else if (ch === "F") rgb = (withBlocked && grid.blocked[r * grid.W + cc]) ? [255, 182, 182] : [255, 255, 255];
+      img.data.set([rgb[0], rgb[1], rgb[2], 255], i * 4);
+    }
+    x.putImageData(img, 0, 0); return c;
+  };
+  baseImgs = { plain: mk(false), blocked: mk(true) };
+}
+function layoutCanvas() {
+  const top = canvas.parentElement.getBoundingClientRect().top + window.scrollY;
+  const availH = Math.max(420, window.innerHeight - top - 120);                       // 아래 범례/안내 문구 자리를 남긴다
+  const availW = window.innerWidth <= 1100 ? Math.max(240, window.innerWidth - 64) : Math.max(300, window.innerWidth - 380 - 500 - 120);
+  S = Math.max(2, Math.min(16, availH / vw.h, availW / vw.w));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = vw.w * S + "px"; canvas.style.height = vw.h * S + "px";
+  canvas.width = Math.round(vw.w * S * dpr); canvas.height = Math.round(vw.h * S * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+// 지금 모드에 맞게 격자를 다시 만든다. 주행 모드에서만 차 반경만큼 팽창한다 (맵 만드는 중에는 필요 없고 느리기만 하다)
+function rebuildGrid() {
+  grid = makeGrid(mapRows, mapMeta, uiMode === "nav" ? RAD() : 0);
+  buildBase(); layoutCanvas();
+  if (backend && backend.setGrid) backend.setGrid(grid);
+  if (uiMode === "nav") {
+    const before = points.length; points = points.filter(p => isFree(grid, ...worldToCell(grid, p[0], p[1])));
+    if (points.length !== before) { previewPath = []; say("현재 설정에서 목적지가 통행 불가로 변경됐어요.", "w"); renderList(); }
+  }
+}
+function setMap(rows, meta) { mapRows = rows; mapMeta = meta; rebuildGrid(); }
+
+const w2c = (x, y) => {
+  const [u, v] = localCellXY(grid, x, y);
+  return [(u - vw.c0) * S, (grid.H - v - vw.r0) * S];
+};
+const c2w = (px, py) => localToWorld(grid, px / S + vw.c0, grid.H - (py / S + vw.r0));
+
+function draw(st, sc) {
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage($("optBlocked").checked && uiMode === "nav" ? baseImgs.blocked : baseImgs.plain, 0, 0, vw.w * S, vw.h * S);
+  if (backend.kind === "pi" && !curStamp) {
+    ctx.fillStyle = "#fff"; ctx.font = "500 14px 'Noto Sans KR',sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(uiMode === "mapping" || uiMode === "busy" ? "SLAM이 맵을 보내오길 기다리는 중..." : "맵이 없어요. '맵 생성 시작'을 누르세요.", vw.w * S / 2, vw.h * S / 2);
+  }
+  if ($("optScan").checked && sc && sc.r && st.pose) {            // 라이다를 맵 위에 투영: 차 위치에서 뻗는 빛과 벽에 닿은 점
+    const [px, py, yaw] = st.pose, pts = scanPoints(sc, 6), cy_ = Math.cos(yaw), sy_ = Math.sin(yaw), [ox, oy] = w2c(px, py);
+    const W2 = p => w2c(px + p.x * cy_ - p.y * sy_, py + p.x * sy_ + p.y * cy_);       // 차 기준 -> 맵 좌표
+    ctx.beginPath(); ctx.moveTo(ox, oy);
+    for (const p of pts) { const [x, y] = W2(p); ctx.lineTo(x, y); }
+    ctx.closePath(); ctx.fillStyle = "rgba(0,170,150,.16)"; ctx.fill();
+    ctx.fillStyle = "#e08a00";
+    for (const p of pts) { if (!p.hit) continue; const [x, y] = W2(p); ctx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4); }
+  }
+  if (uiMode === "nav") {
+    // 클릭한 즉시 계산된 경로를 표시. 주행 중이면 노드의 실시간 경로 우선.
+    const displayPath = (st.active && st.path && st.path.length) ? st.path : previewPath;
+    if (displayPath.length > 1) {
+      ctx.strokeStyle = "#00a0ff"; ctx.lineWidth = 2.8; ctx.beginPath();
+      displayPath.forEach((p, i) => { const [x, y] = w2c(p[0], p[1]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+    }
+    points.forEach((p, i) => {
+      const [x, y] = w2c(p[0], p[1]), on = st.target === i;
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fillStyle = "#ff9900"; ctx.fill();
+      ctx.lineWidth = on ? 3.5 : 1.2; ctx.strokeStyle = on ? "#00c000" : "#000"; ctx.stroke();
+      ctx.fillStyle = "#111"; ctx.font = "700 11px 'JetBrains Mono',monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("G", x, y + .5);
+    });
+  }
+  if (st.pose) {
+    const [x, y, yaw] = st.pose, s = 0.13, pts = [[s, 0], [-s * .7, s * .6], [-s * .7, -s * .6]].map(([fx, fy]) =>
+      w2c(x + fx * Math.cos(yaw) - fy * Math.sin(yaw), y + fx * Math.sin(yaw) + fy * Math.cos(yaw)));
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+    ctx.fillStyle = "#d02020"; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#fff"; ctx.stroke();
+  }
+}
+
+function renderList(targetIdx) {
+  const ol = $("wpList"); ol.textContent = "";
+  const li = document.createElement("li"); li.style.display = "block";
+  if (!points.length) { li.className = "empty"; li.textContent = uiMode === "nav" ? "흰색 지도 영역에서 도착지를 클릭하세요." : "맵 생성을 마치면 도착지를 지정할 수 있어요."; ol.append(li); return; }
+  const p = points[0]; li.className = "mono";
+  li.textContent = `GOAL: x ${p[0].toFixed(2)} / y ${p[1].toFixed(2)} m`;
+  ol.append(li);
+}
+
+// ----- 단일 목적지 클릭 즉시 A* 미리보기 -----
+async function chooseGoal(px, py) {
+  if (uiMode !== "nav") { say("맵 생성 완료 후 도착지를 지정할 수 있어요.", "w"); return; }
+  const st = backend.state();
+  if (st.active) { say("주행 중 목적지를 바꿀 수 없어요. 먼저 정지하세요.", "w"); return; }
+  if (!st.pose) { say("로봇 위치 TF를 받지 못했습니다. 시작 셀을 결정할 수 없어요.", "w"); return; }
+  const [wx, wy] = c2w(px, py), [r, c] = worldToCell(grid, wx, wy);
+  if (!isFree(grid, r, c)) { say("장애물, 미탐색 또는 로봇 안전거리 영역은 선택할 수 없어요.", "w"); return; }
+  // 픽셀을 해당 셀의 중심(map 좌표)으로 고정한다.
+  const goal = cellToWorld(grid, r, c);
+  const requestId = ++goalRequestId;
+  const path = await backend.preview(goal);
+  if (requestId !== goalRequestId) return; // 이전 클릭 응답은 버림
+  if (!path || !path.length) { say("클릭한 도착지로 연결되는 A* 경로가 없어요.", "w"); return; }
+  points = [goal]; previewPath = path;
+  renderList();
+  say(`A* 경로 생성 완료: 목적지 셀 (${c}, ${grid.H - 1 - r}) / ${path.length}개 경로점. '주행 시작'을 눌러 이동하세요.`);
+}
+canvas.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const b = canvas.getBoundingClientRect();
+  const px = (e.clientX - b.left) * (vw.w * S) / b.width;
+  const py = (e.clientY - b.top) * (vw.h * S) / b.height;
+  if (px >= 0 && py >= 0 && px < vw.w * S && py < vw.h * S) chooseGoal(px, py);
+});
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+// ----- 맵 생성 / 생성 완료 -----
+const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `map_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; };
+function disarm() { clearTimeout(armTimer); armTimer = null; $("btnMapStart").textContent = "맵 다시 만들기"; }
+$("btnMapStart").onclick = async () => {
+  if (uiMode === "nav" && !armTimer) {                      // 지금 맵과 웨이포인트가 사라지므로 한 번 더 확인한다
+    $("btnMapStart").textContent = "정말 새로 만들까요? 한 번 더 누르세요";
+    armTimer = setTimeout(disarm, 4000); return;
+  }
+  clearTimeout(armTimer); armTimer = null;
+  points = []; previewPath = []; goalRequestId++; renderList();
+  const btn = $("btnMapStart"); btn.disabled = true;
+  await backend.startMapping();
+  btn.disabled = false;
+};
+$("btnMapFinish").onclick = async () => {
+  const btn = $("btnMapFinish"); btn.disabled = true;
+  const res = await backend.finishMapping($("mapName").value.trim(), RAD(), LIN());
+  btn.disabled = false;
+  if (res && res.name) say(`맵 "${res.name}" 저장 완료`);
+};
+
+// ----- 모드에 따라 켜고 끄기 -----
+function onModeChange() {
+  const m = uiMode, nav = m === "nav", mapping = m === "mapping", busy = m === "busy";
+  const start = $("btnMapStart"); disarm(); start.hidden = mapping; start.textContent = nav ? "맵 다시 만들기" : "맵 생성 시작";
+  start.className = "btn " + (nav ? "" : "primary"); start.disabled = busy;
+  $("btnMapFinish").hidden = !mapping; $("nameField").hidden = !mapping;
+  if (mapping && !$("mapName").value) $("mapName").value = "test";
+  if (!mapping) $("mapName").value = "";
+  $("mapMsg").textContent = { idle: "맵이 없어요. 맵 생성을 시작하면 SLAM을 새로 켜요.", busy: "처리 중이에요. 잠시만 기다려 주세요...",
+    mapping: "수동 조종으로 방 전체를 천천히 훑으세요. 다 되면 생성 완료를 누르세요.", nav: "흰색 영역에 도착지 한 곳을 클릭하면 A* 경로를 표시합니다." }[m];
+  $("autoCard").classList.toggle("off", !nav); $("btnGo").disabled = !nav; $("btnClear").disabled = !nav;
+  $("padCard").classList.toggle("off", !(nav || mapping));
+  document.querySelectorAll(".dpad button").forEach(b => { b.disabled = !(nav || mapping); });
+  rebuildGrid(); renderList(); lastTargetShown = -2;
+}
+
+// ----- 자동 주행 버튼 -----
+$("btnGo").onclick = () => { if (!points.length || !previewPath.length) { say("목적지를 클릭하여 A* 경로부터 생성하세요.", "w"); return; } backend.go([points[0]]); };
+const stopAll = () => { backend.drive(0, 0); backend.stop(); };
+$("btnStop").onclick = stopAll;
+$("btnClear").onclick = () => { goalRequestId++; points = []; previewPath = []; backend.clear(); renderList(); };
+
+// ----- 수동 조종: 누르고 있는 동안 10Hz로 명령을 보낸다 -----
+const held = new Set(); let driveTimer = null;
+function driveVec() {
+  let v = 0, w = 0;
+  for (const k of held) { if (k === "F") v += 1; if (k === "B") v -= 1; if (k === "L") w += 1; if (k === "R") w -= 1; }
+  return [v, w];
+}
+function driveUpdate() {
+  const [v, w] = driveVec();
+  if (v === 0 && w === 0) { clearInterval(driveTimer); driveTimer = null; backend.drive(0, 0); return; }
+  if (!canDrive()) return;
+  backend.drive(v, w);
+  if (!driveTimer) driveTimer = setInterval(() => { const [a, b] = driveVec(); if (canDrive()) backend.drive(a, b); }, 100);
+}
+const dirOf = (v, w) => v > 0 ? "F" : v < 0 ? "B" : w > 0 ? "L" : "R";
+document.querySelectorAll(".dpad button[data-v]").forEach(btn => {
+  const key = dirOf(+btn.dataset.v, +btn.dataset.w);
+  const down = e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); held.add(key); btn.classList.add("held"); driveUpdate(); };
+  const up = () => { held.delete(key); btn.classList.remove("held"); driveUpdate(); };
+  btn.addEventListener("pointerdown", down); btn.addEventListener("pointerup", up); btn.addEventListener("pointercancel", up); btn.addEventListener("lostpointercapture", up);
+});
+$("btnHalt").onclick = stopAll;
+const KEYS = { w: "F", arrowup: "F", s: "B", arrowdown: "B", a: "L", arrowleft: "L", d: "R", arrowright: "R" };
+addEventListener("keydown", e => {
+  if (e.target.matches("input,select,textarea")) return;
+  const k = e.key.toLowerCase();
+  if (k === " ") { e.preventDefault(); stopAll(); return; }
+  if (KEYS[k]) { e.preventDefault(); if (!held.has(KEYS[k])) { held.add(KEYS[k]); driveUpdate(); } }
+});
+addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (KEYS[k]) { held.delete(KEYS[k]); driveUpdate(); } });
+addEventListener("blur", () => { held.clear(); driveUpdate(); });
+
+// ----- 설정 -----
+$("setRadius").addEventListener("input", () => {
+  $("outRadius").textContent = RAD().toFixed(2) + " m";
+  if (uiMode === "nav") { rebuildGrid(); previewPath = []; say("차 반경 변경: 경로를 다시 확인하려면 도착지를 재선택하세요."); }
+});
+$("setSpeed").addEventListener("input", () => { $("outSpeed").textContent = LIN().toFixed(2) + " m/s"; backend && backend.setSpeed(LIN()); });
+for (const id of ["setRadius", "setSpeed"]) $(id).addEventListener("change", () => { if (backend.kind === "pi" && uiMode === "nav") backend.restartNav(RAD(), LIN()); });
+
+// ----- 상태 표시와 메인 루프 -----
+function modeLabel(st) {
+  if (st.offline) return ["서버 응답 없음", "crit"];
+  if (st.mode === "busy") return ["처리 중", "warn"];
+  if (st.mode === "idle") return ["SLAM 꺼짐", ""];
+  if (st.mode === "mapping") return [st.manual ? "맵 생성 중 · 수동" : "맵 생성 중", "run"];
+  return st.manual ? ["수동 조종", "run"] : st.active ? ["주행 중", "run"] : ["대기", ""];
+}
+function updatePanel(st) {
+  const [label, cls] = modeLabel(st); const m = $("stMode"); m.textContent = label; m.className = "pill " + cls;
+  $("stPos").textContent = st.pose ? `${st.pose[0].toFixed(2)}, ${st.pose[1].toFixed(2)} m` : "-";
+  $("stYaw").textContent = st.pose ? `${(wrapAngle(st.pose[2]) * 180 / Math.PI).toFixed(0)}°` : "-";
+  $("stTarget").textContent = points.length ? `${points[0][0].toFixed(2)}, ${points[0][1].toFixed(2)} m` : "-";
+  $("stVel").textContent = `${st.v.toFixed(2)} m/s`; $("stW").textContent = `${st.w.toFixed(2)} rad/s`;
+  if (st.target !== lastTargetShown) { lastTargetShown = st.target; renderList(st.target); }
+}
+// 스캔 -> 차 기준 점들. 반환: [{x,y,hit}] (x 앞, y 왼쪽). 라이다 장착 위치(lx,ly)를 반영하고, 값이 없는 빔은 직전 유효 거리로 이어 그린다
+function scanPoints(sc, maxD) {
+  const n = sc.r.length, lx = sc.lx || 0, ly = sc.ly || 0, out = []; let last = 0;
+  for (let i = 0; i < n; i++) {
+    const a = sc.a0 + i * sc.da, raw = sc.r[i], hit = raw != null && raw <= maxD, d = hit ? raw : Math.min(last, maxD);
+    if (hit) last = raw;
+    out.push({ x: lx + d * Math.cos(a), y: ly + d * Math.sin(a), hit });
+  }
+  return out;
+}
+
+// 라이다 스캔: 차를 가운데에 두고 앞(+x)이 화면 위쪽이 되게 그린다
+const scanCv = $("scan"), sctx = scanCv.getContext("2d"), SCAN_VIEW = 5;           // 세로 방향 5 m 까지 (가로는 화면 폭만큼 더 보인다)
+function drawScan(sc) {
+  const dpr = window.devicePixelRatio || 1, W = Math.max(320, Math.round(scanCv.clientWidth)), H = Math.round(W * 9 / 16);
+  if (scanCv.width !== Math.round(W * dpr)) { scanCv.width = Math.round(W * dpr); scanCv.height = Math.round(H * dpr); }
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = W / 2, cy = H / 2, k = (H / 2 - 8) / SCAN_VIEW, MAXD = Math.hypot(cx, cy) / k, P = (d, a) => [cx - d * Math.sin(a) * k, cy - d * Math.cos(a) * k];
+  sctx.clearRect(0, 0, W, H);
+  sctx.lineWidth = 1; sctx.font = "11px 'JetBrains Mono',monospace"; sctx.textAlign = "left"; sctx.textBaseline = "alphabetic";
+  for (let m = 1; m <= Math.ceil(MAXD); m++) {
+    sctx.strokeStyle = "rgba(255,255,255,.14)"; sctx.beginPath(); sctx.arc(cx, cy, m * k, 0, 7); sctx.stroke();
+    if (m <= SCAN_VIEW) { sctx.fillStyle = "rgba(255,255,255,.45)"; sctx.fillText(m + " m", cx + 4, cy - m * k + 12); }
+  }
+  sctx.strokeStyle = "rgba(255,255,255,.12)"; sctx.beginPath(); sctx.moveTo(cx, 0); sctx.lineTo(cx, H); sctx.moveTo(0, cy); sctx.lineTo(W, cy); sctx.stroke();
+  if (sc && sc.r && sc.r.length) {
+    const pts = scanPoints(sc, MAXD), Q = p => [cx - p.y * k, cy - p.x * k];
+    sctx.beginPath(); sctx.moveTo(cx, cy);
+    for (const p of pts) { const [x, y] = Q(p); sctx.lineTo(x, y); }
+    sctx.closePath(); sctx.fillStyle = "rgba(45,212,191,.20)"; sctx.fill();
+    sctx.strokeStyle = "rgba(45,212,191,.35)"; sctx.stroke();
+    sctx.fillStyle = "#ffd166";
+    for (const p of pts) { if (!p.hit) continue; const [x, y] = Q(p); sctx.fillRect(x - 1.5, y - 1.5, 3, 3); }
+  } else {
+    sctx.fillStyle = "rgba(255,255,255,.6)"; sctx.textAlign = "center";
+    sctx.fillText(uiMode === "mapping" || uiMode === "nav" ? "라이다 데이터를 기다리는 중..." : "SLAM이 꺼져 있어요", cx, cy + 56);
+  }
+  sctx.fillStyle = "#d02020"; sctx.beginPath(); sctx.moveTo(cx, cy - 11); sctx.lineTo(cx - 7, cy + 8); sctx.lineTo(cx + 7, cy + 8); sctx.closePath(); sctx.fill();
+  sctx.strokeStyle = "#fff"; sctx.lineWidth = 1.5; sctx.stroke();
+}
+
+// 차 시점: 앞 90°를 세로줄로 나눠, 각 줄의 거리로 벽 높이를 정한다 (울펜슈타인 방식)
+const viewCv = $("view"), vctx = viewCv.getContext("2d"), FOV = Math.PI / 2;
+function rangeAt(sc, a) {                                                   // 차 기준 각도 a(앞=0, 왼쪽 +)의 거리. 없으면 null
+  const n = sc.r.length, span = n * sc.da; let t = (a - sc.a0) / sc.da; t = ((Math.round(t) % n) + n) % n;
+  return span > 0 ? sc.r[t] : null;
+}
+function drawView(sc) {
+  const dpr = window.devicePixelRatio || 1, W = Math.max(320, Math.round(viewCv.clientWidth)), H = Math.round(W * 9 / 16);
+  if (viewCv.width !== Math.round(W * dpr)) { viewCv.width = Math.round(W * dpr); viewCv.height = Math.round(H * dpr); }
+  vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sky = vctx.createLinearGradient(0, 0, 0, H / 2); sky.addColorStop(0, "#0b1a1e"); sky.addColorStop(1, "#16303a");
+  vctx.fillStyle = sky; vctx.fillRect(0, 0, W, H / 2);
+  const fl = vctx.createLinearGradient(0, H / 2, 0, H); fl.addColorStop(0, "#26302d"); fl.addColorStop(1, "#4a5753");
+  vctx.fillStyle = fl; vctx.fillRect(0, H / 2, W, H / 2);
+  if (!sc || !sc.r || !sc.r.length) {
+    vctx.fillStyle = "rgba(255,255,255,.65)"; vctx.font = "500 14px 'Noto Sans KR',sans-serif"; vctx.textAlign = "center";
+    vctx.fillText(uiMode === "mapping" || uiMode === "nav" ? "라이다 데이터를 기다리는 중..." : "SLAM이 꺼져 있어요", W / 2, H / 2); return;
+  }
+  const cols = Math.min(Math.floor(W / 3), 400), cw = W / cols, FAR = 4.5; let prev = null;
+  for (let i = 0; i < cols; i++) {
+    const a = (0.5 - (i + 0.5) / cols) * FOV, d = rangeAt(sc, a);
+    if (d == null) { prev = null; continue; }
+    const dp = Math.max(0.05, d * Math.cos(a)), h = Math.min(H, H * 0.34 / dp), y = (H - h) / 2, lit = Math.max(0.12, 1 - d / FAR);
+    vctx.fillStyle = `rgb(${Math.round(60 + 150 * lit)},${Math.round(95 + 150 * lit)},${Math.round(90 + 140 * lit)})`;
+    vctx.fillRect(i * cw, y, cw + 0.6, h);
+    if (prev !== null && Math.abs(prev - d) > 0.12) { vctx.fillStyle = "rgba(0,0,0,.45)"; vctx.fillRect(i * cw, y, Math.max(1, cw * 0.8), h); }   // 거리가 확 바뀌는 곳(모서리)에 어두운 선
+    prev = d;
+  }
+  vctx.strokeStyle = "rgba(255,255,255,.35)"; vctx.lineWidth = 1; vctx.beginPath(); vctx.moveTo(W / 2 - 8, H / 2); vctx.lineTo(W / 2 + 8, H / 2); vctx.moveTo(W / 2, H / 2 - 8); vctx.lineTo(W / 2, H / 2 + 8); vctx.stroke();
+}
+
+let lastFrame = performance.now(), acc = 0;
+function loop(now) {
+  const real = Math.min(0.2, (now - lastFrame) / 1000); lastFrame = now;
+  if (backend.kind === "demo") {
+    acc += real * parseInt($("setMult").value, 10);
+    while (acc >= 0.05) { backend.tick(0.05); acc -= 0.05; }
+  }
+  const st = backend.state();
+  if (st.mode !== uiMode) { uiMode = st.mode; onModeChange(); }
+  const snap = backend.mapSnapshot();                       // 서버/데모가 새 맵을 주면 화면의 맵을 바꾼다 (실시간으로 커지는 맵 포함)
+  if (snap && snap.stamp !== curStamp) { curStamp = snap.stamp; setMap(snap.rows, snap.meta); }
+  else if (!snap && curStamp !== null) { curStamp = null; setMap(BLANK.rows, BLANK.meta); }
+  const sc = canDrive() ? backend.scanData() : null;
+  draw(st, sc); updatePanel(st); drawScan(sc); drawView(sc);
+  requestAnimationFrame(loop);
+}
+
+async function detectBackend() {
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 800);
+    const r = await fetch("api/state", { signal: ctl.signal, cache: "no-store" }); clearTimeout(t);
+    const j = await r.json(); if (r.ok && j && typeof j === "object") return new PiBackend(say);
+  } catch (e) { /* 서버 없음 -> 데모 */ }
+  return null;
+}
+
+(async function init() {
+  const toast = document.createElement("div"); toast.id = "toast"; toast.className = "hint"; toast.style.minHeight = "20px";
+  document.querySelector(".legend").after(toast);
+  buildBase(); layoutCanvas(); addEventListener("resize", layoutCanvas);
+  backend = await detectBackend();
+  if (backend) {
+    $("conn").textContent = "파이 연결됨"; $("conn").className = "pill ok"; $("fieldMult").hidden = true;
+    mapRows = BLANK.rows; mapMeta = BLANK.meta; uiMode = "idle"; rebuildGrid();
+  } else {
+    backend = new DemoBackend(makeGrid(MAP_ROWS, MAP_META, 0), say);       // 데모의 '실제 방'(정답 지도). 화면의 맵은 여기서 라이다로 채운다
+    backend.setGrid(grid); curStamp = backend.snap.stamp;
+    $("conn").textContent = "데모 모드"; $("conn").className = "pill warn"; $("notice").hidden = false;
+    layoutCanvas();
+    points = [];
+    say("데모 시작: 빈 공간에 목적지 한 곳을 클릭하면 A* 경로가 즉시 표시됩니다.");
+  }
+  backend.setSpeed(LIN()); renderList();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
